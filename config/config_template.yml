@@ -1,6 +1,12 @@
 server:
   port: 80
 
+redis:
+  host: 127.0.0.1:6379
+  db: 0
+  username: "root"
+  password: "root"
+
 dify:
-  serviceURL: "http://localhost/v1/"
-  apiKey: "your_api_key_here"
+  baseURL: "http://localhost:8000/v1/"
+  apiKey: "xxx"
