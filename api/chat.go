@@ -6,12 +6,14 @@
 package api
 
 import (
+	"bufio"
 	"bytes"
 	"encoding/json"
-	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
+	"github.com/GuanceCloud/chatbot/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
 )
@@ -23,6 +25,16 @@ type DifyRequest struct {
 	ConversationID string                 `json:"conversation_id"`
 	User           string                 `json:"user"`
 	Files          []map[string]string    `json:"files"`
+}
+
+// dify 响应结构
+type DifyResponseMessage struct {
+	Event          string `json:"event"`
+	TaskID         string `json:"task_id"`
+	MessageID      string `json:"id"`
+	ConversationID string `json:"conversation_id"`
+	Answer         string `json:"answer"`
+	CreatedAt      int    `json:"created_at"`
 }
 
 // @Router /smart_query_stream
@@ -61,6 +73,9 @@ func SmartQueryStream(c *gin.Context) {
 		return
 	}
 
+	// 从 Redis 获取 conversation_id
+	conversationId := utils.GetRedis(userID.(string))
+
 	// Dify配置
 	var (
 		difyBaseURL = viper.GetString("dify.baseURL")
@@ -71,7 +86,7 @@ func SmartQueryStream(c *gin.Context) {
 		Inputs:         map[string]interface{}{},
 		Query:          query,
 		ResponseMode:   "streaming",
-		ConversationID: "",
+		ConversationID: conversationId,
 		User:           userID.(string),
 	}
 
@@ -100,10 +115,6 @@ func SmartQueryStream(c *gin.Context) {
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 	req.Header.Set("Content-Type", "application/json")
 
-	fmt.Println("======================")
-	fmt.Println(req.Header.Get("Authorization"))
-	fmt.Println("======================")
-
 	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -130,21 +141,54 @@ func SmartQueryStream(c *gin.Context) {
 	c.Header("Cache-Control", "no-cache")
 	c.Header("Connection", "keep-alive")
 
-	// 流式传输响应
-	done := make(chan bool)
-	go func() {
-		defer close(done)
-		buf := make([]byte, 1024)
-		for {
-			n, err := resp.Body.Read(buf)
-			if n == 0 || err != nil {
-				return
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadBytes('\n')
+		if err != nil {
+			if err == io.EOF {
+				break
 			}
-			c.SSEvent("data", string(buf[:n]))
+			c.String(http.StatusInternalServerError, "Error reading SSE stream")
+			return
 		}
-	}()
 
-	// 等待流式传输完成
-	<-done
-	c.SSEvent("event", "message_end")
+		parseConversationId(line, userID.(string))
+
+		// 处理每一行数据
+		_, err = c.Writer.Write(line)
+		if err != nil {
+			c.String(http.StatusInternalServerError, "Error writing to client")
+			return
+		}
+		c.Writer.Flush()
+	}
+}
+
+func parseConversationId(line []byte, userID string) {
+	// 去掉行尾的换行符
+	line = bytes.TrimSuffix(line, []byte{'\n'})
+
+	// 检查是否是数据行
+	if bytes.HasPrefix(line, []byte("data:")) {
+		// 提取JSON数据
+		jsonData := line[5:] // 跳过"data: "
+
+		// 定义一个用于解析JSON的变量
+		var msg DifyResponseMessage
+
+		// 解析JSON
+		err := json.Unmarshal(jsonData, &msg)
+		if err == nil {
+			// 处理解析后的数据
+			if msg.Event == "message" && msg.ConversationID != "" {
+				// fmt.Println("********************")
+				// fmt.Println("conversation_id: ", msg.ConversationID)
+				// fmt.Println("********************")
+				// 放到redis中
+				if utils.GetRedis(userID) == "" {
+					utils.SetRedis(userID, msg.ConversationID, 3600)
+				}
+			}
+		}
+	}
 }
