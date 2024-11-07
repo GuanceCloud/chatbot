@@ -10,7 +10,7 @@ import (
 	"github.com/GuanceCloud/chatbot/utils"
 )
 
-// @description 注册
+// @description 获取token
 // @Tags user
 // @Param user_id formData string true "用户id"
 // @Router /get_token [post]
@@ -27,8 +27,6 @@ func GetToken(c *gin.Context) {
 		})
 		return
 	}
-
-	fmt.Println("***", data)
 
 	userID := data.UserID
 	if userID == "" {

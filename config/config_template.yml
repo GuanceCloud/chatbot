@@ -1,0 +1,6 @@
+server:
+  port: 80
+
+dify:
+  serviceURL: "http://localhost/v1/"
+  apiKey: "your_api_key_here"

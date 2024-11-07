@@ -8,16 +8,14 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/spf13/viper"
 )
 
-// DifyServiceURL 是 dify 服务的基础 URL
-const DifyServiceURL = "http://localhost:8000/v1"
-
-// DifyRequest 是发送给 dify 服务的请求结构体
 type DifyRequest struct {
 	Inputs         map[string]interface{} `json:"inputs"`
 	Query          string                 `json:"query"`
@@ -27,15 +25,22 @@ type DifyRequest struct {
 	Files          []map[string]string    `json:"files"`
 }
 
-// 假设以下是您的其他相关函数和类型
-type Document struct {
-	PageContent string `json:"page_content"`
-	Metadata    struct {
-		Source string `json:"source"`
-	} `json:"metadata"`
-}
-
+// @Router /smart_query_stream
 func SmartQueryStream(c *gin.Context) {
+	var requestBody struct {
+		Query  string `json:"query"`
+		UserId string `json:"user_id"`
+	}
+	if err := c.ShouldBindJSON(&requestBody); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"retcode": -20000,
+			"message": "Invalid request",
+			"data":    gin.H{},
+		})
+		return
+	}
+
+	// 这里是从token获取的，从请求体里获取也可以
 	userID, exists := c.Get("user_id")
 	if !exists {
 		c.JSON(http.StatusBadRequest, gin.H{
@@ -46,7 +51,7 @@ func SmartQueryStream(c *gin.Context) {
 		return
 	}
 
-	query := c.PostForm("query")
+	query := requestBody.Query
 	if query == "" {
 		c.JSON(http.StatusBadRequest, gin.H{
 			"retcode": -20000,
@@ -56,20 +61,18 @@ func SmartQueryStream(c *gin.Context) {
 		return
 	}
 
-	// 设置 dify 请求
+	// Dify配置
+	var (
+		difyBaseURL = viper.GetString("dify.baseURL")
+		apiKey      = viper.GetString("dify.apiKey")
+	)
+	// dify 请求
 	difyReq := DifyRequest{
 		Inputs:         map[string]interface{}{},
 		Query:          query,
 		ResponseMode:   "streaming",
 		ConversationID: "",
 		User:           userID.(string),
-		Files: []map[string]string{
-			{
-				"type":            "image",
-				"transfer_method": "remote_url",
-				"url":             "https://cloud.dify.ai/logo/logo-site.png",
-			},
-		},
 	}
 
 	// 将请求编码为 JSON
@@ -84,7 +87,24 @@ func SmartQueryStream(c *gin.Context) {
 	}
 
 	// 发起请求到 dify 服务
-	resp, err := http.Post(DifyServiceURL+"/chat-messages", "application/json", bytes.NewBuffer(reqBody))
+	client := &http.Client{}
+	req, err := http.NewRequest("POST", difyBaseURL+"chat-messages", bytes.NewBuffer(reqBody))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"retcode": -30000,
+			"message": "Failed to create request to dify service",
+			"data":    gin.H{},
+		})
+		return
+	}
+	req.Header.Set("Authorization", "Bearer "+apiKey)
+	req.Header.Set("Content-Type", "application/json")
+
+	fmt.Println("======================")
+	fmt.Println(req.Header.Get("Authorization"))
+	fmt.Println("======================")
+
+	resp, err := client.Do(req)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"retcode": -30000,
@@ -121,9 +141,6 @@ func SmartQueryStream(c *gin.Context) {
 				return
 			}
 			c.SSEvent("data", string(buf[:n]))
-			if err != nil {
-				return
-			}
 		}
 	}()
 
