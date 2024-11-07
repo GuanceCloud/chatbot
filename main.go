@@ -4,6 +4,7 @@ import (
 	"github.com/GuanceCloud/chatbot/config"
 	"github.com/GuanceCloud/chatbot/initialize"
 	"github.com/GuanceCloud/chatbot/utils"
+	"github.com/spf13/viper"
 )
 
 func main() {
@@ -15,5 +16,6 @@ func main() {
 	defer utils.CloseRedis()
 
 	r := initialize.SetupRouter()
-	r.Run(":80")
+	serverPort := viper.GetString("server.port")
+	r.Run(serverPort)
 }
