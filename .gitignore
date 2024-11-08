@@ -2,3 +2,4 @@
 __debug_bin*
 
 dist/
+k8s/deploy_dify/chatbot-env.yaml
