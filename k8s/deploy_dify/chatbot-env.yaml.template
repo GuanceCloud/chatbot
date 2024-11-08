@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: chatbot-env
+  namespace: guance-chatbot
+  lables:
+    app: chatbot-env
+data:
+  REDIS_PASSWORD: ""
+  POSTGRES_DB: dify
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: ""
+  WEAVIATE_AUTHENTICATION_APIKEY: ""
+  # You can generate a strong key using `openssl rand -base64 42`.
+  DIFY_SANDBOX_API_KEY: ""
+  DIFY_SECRET_KEY: ""
+  DIFY_INIT_PASSWORD: ""

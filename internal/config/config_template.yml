@@ -1,0 +1,14 @@
+server:
+  port: "80"
+  host: ""
+
+redis:
+  host: "127.0.0.1"
+  port: "6379"
+  db: "0"
+  username: ""
+  password: ""
+
+dify:
+  baseURL: "http://localhost:8000/v1/"
+  apiKey: "xxx"
