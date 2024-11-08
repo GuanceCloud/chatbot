@@ -1,0 +1,75 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: chatbot-api
+  namespace: guance-chatbot
+spec:
+  type: ClusterIP
+  selector:
+    app: chatbot-api
+  ports:
+    - protocol: TCP
+      port: 7000
+      targetPort: 7000
+
+--- 
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: chatbot-api
+  name: chatbot-api
+  namespace: guance-chatbot
+spec:
+  replicas: 1
+  revisionHistoryLimit: 10
+  selector:
+    matchLabels:
+      app: chatbot-api
+  template:
+    metadata:
+      labels:
+        app: chatbot-api
+    spec:
+      containers:
+      - name: chatbot-api
+        image: 
+        imagePullPolicy: IfNotPresent
+        env:
+          - name: SERVER_PORT
+            value: "7000"
+          - name: REDIS_HOST
+            value: redis
+          - name: REDIS_PORT
+            value: "6379"
+          - name: REDIS_DB
+            value: "0"
+          - name: REDIS_PASSWORD
+            valueFrom:
+              configMapKeyRef:
+                name: chatbot-env
+                key: REDIS_PASSWORD
+          - name: DIFY_BASE_URL
+            value: http://dify-nginx/v1
+          - name: DIFY_API_KEY
+            value: ""
+          - name: GUANCE_SECRET
+            value: ""
+        ports:
+          - containerPort: 7000
+            name: port
+            protocol: TCP
+        resources:
+          requests:
+            cpu: "200m"
+            memory: "128Mi"
+          limits:
+            cpu: "2000m"
+            memory: "2Gi"
+        securityContext:
+          privileged: false
+        volumeMounts:
+        workingDir: /app
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
