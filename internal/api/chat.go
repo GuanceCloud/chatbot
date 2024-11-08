@@ -20,7 +20,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
-	"io/ioutil"
 	"net/http"
 
 	"github.com/GuanceCloud/chatbot/pkg/utils"
@@ -138,7 +137,7 @@ func SmartQueryStream(c *gin.Context) {
 
 	// 检查 dify 服务响应状态
 	if resp.StatusCode != http.StatusOK {
-		body, _ := ioutil.ReadAll(resp.Body)
+		body, _ := io.ReadAll(resp.Body)
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"retcode": -30000,
 			"message": "Dify service returned an error",

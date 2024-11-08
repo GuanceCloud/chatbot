@@ -22,7 +22,7 @@ import (
 )
 
 func InitUserRouter(Router *gin.RouterGroup) {
-	UserRouter := Router.Group("")
+	UserRouter := Router.Group("/open_kf_api/auth")
 	{
 		UserRouter.POST("/get_token", api.GetToken)
 	}

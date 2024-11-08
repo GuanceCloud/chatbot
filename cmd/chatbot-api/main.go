@@ -16,21 +16,23 @@
 package main
 
 import (
+	"net"
+
 	"github.com/GuanceCloud/chatbot/internal/config"
 	"github.com/GuanceCloud/chatbot/internal/initialize"
 	"github.com/GuanceCloud/chatbot/pkg/utils"
-	"github.com/spf13/viper"
 )
 
 func main() {
 	// 初始化配置
-	config.InitConfig()
+	cfg := config.InitConfig()
 
 	// Redis初始化
-	utils.InitRedis()
+	utils.InitRedis(cfg.Redis)
 	defer utils.CloseRedis()
 
-	r := initialize.SetupRouter()
-	serverPort := viper.GetString("server.port")
-	r.Run(serverPort)
+	r := initialize.SetupRouter(cfg.GuanceSecret)
+
+	serverAddr := net.JoinHostPort(cfg.Server.Host, cfg.Server.Port)
+	r.Run(serverAddr)
 }

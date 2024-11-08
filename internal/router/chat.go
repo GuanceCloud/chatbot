@@ -21,7 +21,7 @@ import (
 )
 
 func InitChatRouter(Router *gin.RouterGroup) {
-	ChatRouter := Router.Group("")
+	ChatRouter := Router.Group("/open_kf_api/queries")
 	{
 		ChatRouter.POST("/smart_query_stream", api.SmartQueryStream)
 	}

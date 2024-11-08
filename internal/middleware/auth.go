@@ -24,10 +24,20 @@ import (
 	"github.com/GuanceCloud/chatbot/pkg/utils"
 )
 
-func Auth() gin.HandlerFunc {
+func Auth(guanceSecret string) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		// 检查是否应该跳过中间件
-		if c.Request.URL.Path == "/get_token" {
+		if c.Request.URL.Path == "/open_kf_api/auth/get_token" {
+			tkHdr := c.GetHeader("GUANCE-API-KEY")
+			if tkHdr != guanceSecret {
+				c.JSON(http.StatusUnauthorized, gin.H{
+					"retcode": -40001,
+					"message": "guance api key is invalid",
+					"data":    gin.H{},
+				})
+				c.Abort()
+				return
+			}
 			c.Next()
 			return
 		}

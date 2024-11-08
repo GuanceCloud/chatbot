@@ -21,11 +21,56 @@ import (
 	"github.com/spf13/viper"
 )
 
-func InitConfig() {
-	viper.SetConfigType("yml")       // 设置配置文件类型
-	viper.AddConfigPath("./config/") // 设置配置文件搜索路径
-	err := viper.ReadInConfig()      // 读取配置文件
+type RedisConfig struct {
+	Host     string `yaml:"host"`
+	Port     string `yaml:"port"`
+	DB       string `yaml:"db"`
+	Username string `yaml:"username"`
+	Password string `yaml:"password"`
+}
+
+type DifyConfig struct {
+	BaseURL string `yaml:"baseURL"`
+	APIKey  string `yaml:"apiKey"`
+}
+
+type ServerConfig struct {
+	Host string `yaml:"host"`
+	Port string `yaml:"port"`
+}
+
+type Config struct {
+	Server ServerConfig `yaml:"server"`
+	Redis  RedisConfig  `yaml:"redis"`
+	Dify   DifyConfig   `yaml:"dify"`
+
+	GuanceSecret string `yaml:"guanceSecret"`
+}
+
+func InitConfig() Config {
+	viper.SetConfigType("yml")        // 设置配置文件类型
+	viper.AddConfigPath("./.config/") // 设置配置文件搜索路径
+
+	viper.BindEnv("server.host", "SERVER_HOST")
+	viper.BindEnv("server.port", "SERVER_PORT")
+
+	viper.BindEnv("redis.host", "REDIS_HOST")
+	viper.BindEnv("redis.port", "REDIS_PORT")
+	viper.BindEnv("redis.db", "REDIS_DB")
+	viper.BindEnv("redis.username", "REDIS_USERNAME")
+	viper.BindEnv("redis.password", "REDIS_PASSWORD")
+
+	viper.BindEnv("dify.baseURL", "DIFY_BASE_URL")
+	viper.BindEnv("dify.apiKey", "DIFY_API_KEY")
+
+	viper.BindEnv("guanceSecret", "GUANCE_SECRET")
+
+	err := viper.ReadInConfig() // 读取配置文件
 	if err != nil {
-		panic(fmt.Errorf("load config file: %w", err))
+		fmt.Printf("load config file: %s\n", err)
 	}
+
+	var config Config
+	viper.Unmarshal(&config)
+	return config
 }

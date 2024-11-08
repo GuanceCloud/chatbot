@@ -21,10 +21,10 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-func SetupRouter() *gin.Engine {
+func SetupRouter(guanceSecret string) *gin.Engine {
 	r := gin.Default()
 	r.Use(middleware.Cors())
-	r.Use(middleware.Auth())
+	r.Use(middleware.Auth(guanceSecret))
 	Group := r.Group("")
 	{
 		router.InitUserRouter(Group)
