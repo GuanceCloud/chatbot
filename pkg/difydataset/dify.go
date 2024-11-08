@@ -1,4 +1,4 @@
-package difyapi
+package difydataset
 
 import (
 	"bytes"
