@@ -34,28 +34,28 @@ spec:
     spec:
       containers:
       - name: chatbot-api
-        image: 
+        image: pubrepo.jiagouyun.com/chatbot/chatbot-api:v0.2.0
         imagePullPolicy: IfNotPresent
         env:
-          - name: SERVER_PORT
-            value: "7000"
-          - name: REDIS_HOST
-            value: redis
-          - name: REDIS_PORT
-            value: "6379"
-          - name: REDIS_DB
-            value: "0"
-          - name: REDIS_PASSWORD
-            valueFrom:
-              configMapKeyRef:
-                name: chatbot-env
-                key: REDIS_PASSWORD
-          - name: DIFY_BASE_URL
-            value: http://dify-nginx/v1
-          - name: DIFY_API_KEY
-            value: ""
-          - name: GUANCE_SECRET
-            value: ""
+            - name: SERVER_PORT
+              value: "7000"
+            - name: REDIS_HOST
+              value: redis
+            - name: REDIS_PORT
+              value: "6379"
+            - name: REDIS_DB
+              value: "0"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: chatbot-env
+                  key: REDIS_PASSWORD
+            - name: DIFY_BASE_URL
+              value: http://dify-nginx/v1
+            - name: DIFY_API_KEY
+              value: ""
+            - name: GUANCE_SECRET
+              value: ""
         ports:
           - containerPort: 7000
             name: port

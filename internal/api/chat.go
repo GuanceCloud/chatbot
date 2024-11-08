@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
+	"net/url"
 
 	"github.com/GuanceCloud/chatbot/pkg/utils"
 	"github.com/gin-gonic/gin"
@@ -112,7 +113,16 @@ func SmartQueryStream(c *gin.Context) {
 
 	// 发起请求到 dify 服务
 	client := &http.Client{}
-	req, err := http.NewRequest("POST", difyBaseURL+"chat-messages", bytes.NewBuffer(reqBody))
+	url, err := url.JoinPath(difyBaseURL, "chat-messages")
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"retcode": -30000,
+			"message": "Failed to build dify service address",
+			"data":    gin.H{},
+		})
+		return
+	}
+	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"retcode": -30000,
@@ -161,19 +171,19 @@ func SmartQueryStream(c *gin.Context) {
 			return
 		}
 
-		parseConversationId(line, userID.(string))
-
-		// 处理每一行数据
-		_, err = c.Writer.Write(line)
-		if err != nil {
-			c.String(http.StatusInternalServerError, "Error writing to client")
-			return
+		if msg := parseConversationId(line, userID.(string)); msg != nil {
+			// 处理每一行数据
+			_, err = c.Writer.Write([]byte(msg.Answer))
+			if err != nil {
+				c.String(http.StatusInternalServerError, "Error writing to client")
+				return
+			}
+			c.Writer.Flush()
 		}
-		c.Writer.Flush()
 	}
 }
 
-func parseConversationId(line []byte, userID string) {
+func parseConversationId(line []byte, userID string) *DifyResponseMessage {
 	// 去掉行尾的换行符
 	line = bytes.TrimSuffix(line, []byte{'\n'})
 
@@ -197,7 +207,9 @@ func parseConversationId(line []byte, userID string) {
 				if utils.GetRedis(userID) == "" {
 					utils.SetRedis(userID, msg.ConversationID, 3600)
 				}
+				return &msg
 			}
 		}
 	}
+	return nil
 }
