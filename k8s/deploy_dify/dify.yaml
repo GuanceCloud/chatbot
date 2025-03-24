@@ -109,7 +109,7 @@ spec:
         - name: CONSOLE_CORS_ALLOW_ORIGINS
           value: "*"
         - name: STORAGE_TYPE
-          value: "*"
+          value: "local"
         - name: STORAGE_LOCAL_PATH
           value: /app/api/storage
         - name: VECTOR_STORE
@@ -268,7 +268,7 @@ spec:
         - name: CONSOLE_CORS_ALLOW_ORIGINS
           value: "*"
         - name: STORAGE_TYPE
-          value: "*"
+          value: "local"
         - name: STORAGE_LOCAL_PATH
           value: /app/api/storage
         - name: VECTOR_STORE
