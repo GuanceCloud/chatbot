@@ -19,6 +19,7 @@ import (
 	"bufio"
 	"bytes"
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"net/url"
@@ -26,6 +27,10 @@ import (
 	"github.com/GuanceCloud/chatbot/pkg/utils"
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/viper"
+)
+
+var (
+	maxAttempt = 2
 )
 
 type DifyRequest struct {
@@ -122,65 +127,85 @@ func SmartQueryStream(c *gin.Context) {
 		})
 		return
 	}
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"retcode": -30000,
-			"message": "Failed to create request to dify service",
-			"data":    gin.H{},
-		})
-		return
-	}
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-	req.Header.Set("Content-Type", "application/json")
 
-	resp, err := client.Do(req)
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"retcode": -30000,
-			"message": "Failed to send request to dify service",
-			"data":    gin.H{},
-		})
-		return
-	}
-	defer resp.Body.Close()
-
-	// 检查 dify 服务响应状态
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		c.JSON(http.StatusInternalServerError, gin.H{
-			"retcode": -30000,
-			"message": "Dify service returned an error",
-			"data":    string(body),
-		})
-		return
-	}
-
-	c.Header("Content-Type", "text/event-stream")
-	c.Header("Cache-Control", "no-cache")
-	c.Header("Connection", "keep-alive")
-
-	reader := bufio.NewReader(resp.Body)
-	for {
-		line, err := reader.ReadBytes('\n')
+	for attempt := 0; attempt < maxAttempt; attempt++ {
+		req, err := http.NewRequest("POST", url, bytes.NewBuffer(reqBody))
 		if err != nil {
-			if err == io.EOF {
-				break
-			}
-			c.String(http.StatusInternalServerError, "Error reading SSE stream")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"retcode": -30000,
+				"message": "Failed to create request to dify service",
+				"data":    gin.H{},
+			})
 			return
 		}
+		req.Header.Set("Authorization", "Bearer "+apiKey)
+		req.Header.Set("Content-Type", "application/json")
 
-		if msg := parseConversationId(line, userID.(string)); msg != nil {
-			// 处理每一行数据
-			_, err = c.Writer.Write([]byte(msg.Answer))
-			if err != nil {
-				c.String(http.StatusInternalServerError, "Error writing to client")
+		resp, err := client.Do(req)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"retcode": -30000,
+				"message": "Failed to send request to dify service",
+				"data":    gin.H{},
+			})
+			return
+		}
+		defer resp.Body.Close()
+
+		// 检查 dify 服务响应状态
+		if resp.StatusCode != http.StatusOK {
+			if attempt == maxAttempt-1 {
+				c.JSON(http.StatusInternalServerError, gin.H{
+					"retcode": -30000,
+					"message": "Dify service returned an error",
+					"data":    gin.H{},
+				})
 				return
 			}
-			c.Writer.Flush()
+
+			continue
 		}
+		c.Header("Content-Type", "text/event-stream")
+		c.Header("Cache-Control", "no-cache")
+		c.Header("Connection", "keep-alive")
+
+		reader := bufio.NewReader(resp.Body)
+		for {
+			line, err := reader.ReadBytes('\n')
+			if err != nil {
+				if err == io.EOF {
+					break
+				}
+				c.String(http.StatusInternalServerError, "Error reading SSE stream")
+				return
+			}
+
+			if msg := parseConversationId(line, userID.(string)); msg != nil {
+				// 处理每一行数据
+				_, err = c.Writer.Write([]byte(msg.Answer))
+				if err != nil {
+					c.String(http.StatusInternalServerError, "Error writing to client")
+					return
+				}
+				c.Writer.Flush()
+			}
+		}
+
+		// 成功则跳出循环
+		break
 	}
+}
+
+func retryReqDify(client *http.Client, req *http.Request) (http.Response, error) {
+	resp, err := client.Do(req)
+	if err != nil {
+		return http.Response{}, err
+	}
+	// 检查 dify 服务响应状态
+	if resp.StatusCode != http.StatusOK {
+		return http.Response{}, errors.New("dify service returned an error")
+	}
+	return *resp, nil
 }
 
 func parseConversationId(line []byte, userID string) *DifyResponseMessage {
